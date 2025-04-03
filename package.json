@@ -1,0 +1,16 @@
+{
+  "name": "nodejsproject",
+  "version": "1.0.0",
+  "description": "Nodejs Project chai Aur Code",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.1.9",
+    "prettier": "^3.5.3"
+  }
+}
