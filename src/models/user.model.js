@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
+import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken"; // 🔸 JWT import bhool gaye ho
 
 const userSchema = new Schema(
   {
@@ -12,6 +12,13 @@ const userSchema = new Schema(
       trim: true,
       index: true,
     },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
     fullName: {
       type: String,
       required: true,
@@ -19,16 +26,16 @@ const userSchema = new Schema(
       index: true,
     },
     avatar: {
-      type: String, // Cloudinary URL
-      required: true,
+      type: String, // cloudinary URL
+      required: false,
     },
     coverImage: {
-      type: String,
+      type: String, // cloudinary URL
     },
     watchHistory: [
       {
         type: Schema.Types.ObjectId,
-        ref: "Video", // 🔸 Typo: Vedio ➤ Video
+        ref: "Video",
       },
     ],
     password: {
@@ -39,7 +46,9 @@ const userSchema = new Schema(
       type: String,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 // 🔐 Hash password before saving
@@ -49,15 +58,17 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
-// 🔍 Correcting 'methods' and fixing typos
+// ✅ Password check method
 userSchema.methods.isPasswordCorrect = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
 
+// 🔐 Generate Access Token
 userSchema.methods.generateAccessToken = function () {
   return jwt.sign(
     {
       _id: this._id,
+      email: this.email,
       userName: this.userName,
       fullName: this.fullName,
     },
@@ -68,6 +79,7 @@ userSchema.methods.generateAccessToken = function () {
   );
 };
 
+// 🔄 Generate Refresh Token
 userSchema.methods.generateRefreshToken = function () {
   return jwt.sign(
     {
