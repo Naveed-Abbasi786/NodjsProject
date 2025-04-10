@@ -2,9 +2,10 @@ import { app } from './app.js'
 import connectDB from './db/index.js'
 import dotenv from 'dotenv'
 
-dotenv.config({ path: './.env' }); 
-dotenv.config();
 
+dotenv.config({
+  path: "./.env",
+});
 
 const Port=process.env.PORT || 8000
 connectDB()
@@ -20,6 +21,13 @@ connectDB()
 .catch((err)=>{
   console.log('Mongo db Connection failed',err)
 })
+
+
+
+
+
+
+
 // import mongoose from "mongoose";
 // import { DB_NAME } from "./constants.js";
 // import dotenv from "dotenv";
