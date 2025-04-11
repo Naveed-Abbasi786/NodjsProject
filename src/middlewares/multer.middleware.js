@@ -20,10 +20,19 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    // Get the file extension based on the mime type
-    const fileExtension = file.mimetype.split('/')[1]; // 'png', 'jpeg', 'jpg'
-    cb(null, file.fieldname + '-' + uniqueSuffix + '.' + fileExtension); // Add extension to the file name
+    
+    let fileExtension = 'jpg'; // default extension
+  
+    if (file.mimetype && file.mimetype.startsWith('image/')) {
+      fileExtension = file.mimetype.split('/')[1]; // e.g. png, jpeg
+    }
+  
+    cb(null, `${file.fieldname}-${uniqueSuffix}.${fileExtension}`);
   }
+  
 });
 
 export const upload = multer({ storage: storage });
+
+
+
