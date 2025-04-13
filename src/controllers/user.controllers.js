@@ -4,6 +4,7 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utlls/fileUpload.js";
 import { ApiResponse } from "../utlls/apiResponse.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const genertaAccesTokenAndRefreshToken = async (userid) => {
   try {
@@ -345,7 +346,139 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, user, "Account updated successfully"));
 });
 
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const { userName } = req.params;
 
+  if (!userName?.trim()) {
+    throw new ApiError(401, 'Username is missing');
+  }
+
+  const channel = await User.aggregate([
+    {
+      // Pehle match kar rahe hain ke jis userName ko dhoondhna hai wo mil jaye
+      $match: {
+        userName: userName?.toLowerCase() // lowerCase taake exact match ho
+      }
+    },
+    {
+      // Pehla lookup: 'subscription' collection se woh records lao jahan
+      // 'User._id' == 'subscription.channel'
+      $lookup: {
+        from: "subscription",          // doosri collection jahan se data lana hai
+        localField: '_id',             // current collection ka field (User._id)
+        foreignField: 'channel',       // dusri collection ka field jisse match karna hai
+        as: 'subscribers'              // jo result mile uska naam ye hoga
+      }
+    },
+    {
+      // Dusra lookup: woh records lao jahan 'User._id' == 'subscription.Subscriber'
+      $lookup: {
+        from: "subscription",
+        localField: "_id",             // current user ka _id
+        foreignField: "Subscriber",    // dusri collection ka subscriber field
+        as: 'subscribeTO'              // result ka naam subscribeTO rakha
+      }
+    },
+    {
+      // Ab custom fields add kar rahe hain
+      $addFields: {
+        // SubscribersCount: total subscribers count nikala
+        SubscribersCount: {
+          $size: '$subscribers'        // subscribers array ki length
+        },
+        // channelSubscribeTo: total channels jise user ne subscribe kiya
+        channelSubscribeTo: {
+          $size: "$subscribeTO"
+        },
+        // isSubscribed: kya current loggedIn user ne iss channel ko subscribe kiya ya nahi
+        isSubscribed: {
+          $cond: {
+            if: { $in: [req.user?._id, "$subscribers.subscriber"] }, // agar user _id subscribers mein hai
+            then: true,
+            else: false
+          }
+        }
+      }
+    },
+    {
+      // Sirf specific fields show karo output mein
+      $project: {
+        fullName: 1,
+        userName: 1,
+        SubscribersCount: 1,
+        channelSubscribeTo: 1,
+        isSubscribed: 1,
+        avatar: 1,
+        coverImage: 1,
+        email: 1
+      }
+    }
+  ]);
+
+  // Agar channel nahi mila to 404 error throw karo
+  if (!channel?.length) {
+    throw new ApiError(404, 'channel does not exists');
+  }
+
+  // Agar sab sahi to response return karo
+  return res.status(200).json(
+    new ApiResponse(200, channel[0], "user channel successfully fetched")
+  );
+});
+
+const getWatchHistory = asyncHandler(async(req, res) => {
+  const user = await User.aggregate([
+      {
+          $match: {
+              _id: new mongoose.Types.ObjectId(req.user._id)
+          }
+      },
+      {
+          $lookup: {
+              from: "videos",
+              localField: "watchHistory",
+              foreignField: "_id",
+              as: "watchHistory",
+              pipeline: [
+                  {
+                      $lookup: {
+                          from: "users",
+                          localField: "owner",
+                          foreignField: "_id",
+                          as: "owner",
+                          pipeline: [
+                              {
+                                  $project: {
+                                      fullName: 1,
+                                      username: 1,
+                                      avatar: 1
+                                  }
+                              }
+                          ]
+                      }
+                  },
+                  {
+                      $addFields:{
+                          owner:{
+                              $first: "$owner"
+                          }
+                      }
+                  }
+              ]
+          }
+      }
+  ])
+
+  return res
+  .status(200)
+  .json(
+      new ApiResponse(
+          200,
+          user[0].watchHistory,
+          "Watch history fetched successfully"
+      )
+  )
+})
 
 
 export {
@@ -356,5 +489,7 @@ export {
   changeCurrentPassword,
   getCurrentUser,
   updateAccountDetails,
-  updateUserAvatar
+  updateUserAvatar,
+  getUserChannelProfile,
+  getWatchHistory
 };
